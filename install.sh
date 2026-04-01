@@ -4,7 +4,7 @@ set -e
 # -------------------------------
 # CONFIG
 # -------------------------------
-THEME_URL="https://github.com/vyzxz/nexaura-theme/raw/main/nexauratheme.zip"
+GITHUB_ZIP_URL="https://github.com/vyzxz/nexaura-theme/raw/main/nexauratheme.zip?raw=true"
 PTERO_DIR="/var/www/pterodactyl"
 TEMP_DIR="/tmp/nexaura_theme"
 BACKUP_DIR="/var/www/pterodactyl_backup_$(date +%F_%T)"
@@ -27,7 +27,7 @@ check_command() {
 }
 
 # -------------------------------
-# PRECHECK
+# PRE-CHECKS
 # -------------------------------
 log "Checking dependencies..."
 check_command curl
@@ -42,7 +42,7 @@ check_command file
 cd $PTERO_DIR
 
 # -------------------------------
-# MAINTENANCE
+# MAINTENANCE MODE
 # -------------------------------
 log "Enabling maintenance mode..."
 php artisan down || true
@@ -55,36 +55,37 @@ mkdir -p $BACKUP_DIR
 rsync -a resources/ $BACKUP_DIR/resources/
 
 # -------------------------------
-# DOWNLOAD (FIXED PROPERLY)
+# DOWNLOAD
 # -------------------------------
 log "Downloading theme..."
 
 rm -rf $TEMP_DIR
 mkdir -p $TEMP_DIR
 
-curl -L --fail --retry 3 "$THEME_URL" -o $TEMP_DIR/theme.zip || error "Download failed"
+curl -L --fail --retry 3 "$GITHUB_ZIP_URL" -o $TEMP_DIR/theme.zip || error "Download failed"
 
-# Check file type
+# -------------------------------
+# VERIFY FILE
+# -------------------------------
 FILE_TYPE=$(file -b $TEMP_DIR/theme.zip)
 log "Downloaded file type: $FILE_TYPE"
 
-echo "$FILE_TYPE" | grep -qi "zip" || error "Downloaded file is NOT a zip (GitHub issue)"
+echo "$FILE_TYPE" | grep -qi "zip" || error "Downloaded file is NOT a valid zip"
 
 # -------------------------------
 # EXTRACT
 # -------------------------------
 log "Extracting theme..."
-
 unzip -o $TEMP_DIR/theme.zip -d $TEMP_DIR || error "Unzip failed"
 
 # -------------------------------
-# FIND resources
+# FIND RESOURCES
 # -------------------------------
-log "Locating resources..."
+log "Locating resources folder..."
 
 THEME_RESOURCES=$(find $TEMP_DIR -type d -name "resources" | head -n 1)
 
-[ -d "$THEME_RESOURCES" ] || error "resources folder not found"
+[ -d "$THEME_RESOURCES" ] || error "resources folder not found in zip"
 
 # -------------------------------
 # INSTALL
@@ -104,22 +105,23 @@ rm -f yarn.lock
 rm -rf public/assets/*
 
 log "Installing dependencies..."
-yarn install --silent
+yarn install --silent || error "Yarn install failed"
 
 log "Building production..."
-yarn build:production
+yarn build:production || error "Build failed"
 
 # -------------------------------
-# CACHE
+# CACHE CLEAR
 # -------------------------------
 log "Clearing cache..."
 php artisan optimize:clear
 
 # -------------------------------
-# FINAL
+# FINALIZE
 # -------------------------------
 log "Disabling maintenance mode..."
 php artisan up
 
 log "✅ Nexaura Theme Installed Successfully"
 echo "Backup: $BACKUP_DIR"
+echo "Logs: $LOG_FILE"
