@@ -86,24 +86,21 @@ THEME_RESOURCES=$(find $TEMP_DIR -type d -name "resources" | head -n 1)
 [ -d "$THEME_RESOURCES" ] || error "resources folder not found in zip"
 
 # -------------------------------
-# INSTALL
+# APPLY ONLY RESOURCES
 # -------------------------------
-log "Applying theme..."
+log "Replacing resources folder..."
 rsync -a --delete "$THEME_RESOURCES/" "$PTERO_DIR/resources/"
 
 # -------------------------------
-# BUILD
+# BUILD (SAFE METHOD)
 # -------------------------------
-log "Preparing build..."
-mkdir -p public/assets
-rm -rf node_modules
-rm -f yarn.lock
-rm -rf public/assets/*
-
 log "Installing dependencies..."
-yarn install --silent || error "Yarn install failed"
+yarn install || error "Yarn install failed"
 
-log "Building production..."
+log "Setting NodeJS legacy flag..."
+export NODE_OPTIONS=--openssl-legacy-provider
+
+log "Building panel..."
 yarn build:production || error "Build failed"
 
 # -------------------------------
@@ -113,7 +110,7 @@ log "Clearing cache..."
 php artisan optimize:clear
 
 # -------------------------------
-# PERMISSIONS (IMPORTANT)
+# PERMISSIONS
 # -------------------------------
 log "Fixing permissions..."
 
