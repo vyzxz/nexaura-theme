@@ -58,7 +58,6 @@ rsync -a resources/ $BACKUP_DIR/resources/
 # DOWNLOAD
 # -------------------------------
 log "Downloading theme..."
-
 rm -rf $TEMP_DIR
 mkdir -p $TEMP_DIR
 
@@ -82,7 +81,6 @@ unzip -o $TEMP_DIR/theme.zip -d $TEMP_DIR || error "Unzip failed"
 # FIND RESOURCES
 # -------------------------------
 log "Locating resources folder..."
-
 THEME_RESOURCES=$(find $TEMP_DIR -type d -name "resources" | head -n 1)
 
 [ -d "$THEME_RESOURCES" ] || error "resources folder not found in zip"
@@ -91,14 +89,12 @@ THEME_RESOURCES=$(find $TEMP_DIR -type d -name "resources" | head -n 1)
 # INSTALL
 # -------------------------------
 log "Applying theme..."
-
 rsync -a --delete "$THEME_RESOURCES/" "$PTERO_DIR/resources/"
 
 # -------------------------------
 # BUILD
 # -------------------------------
 log "Preparing build..."
-
 mkdir -p public/assets
 rm -rf node_modules
 rm -f yarn.lock
@@ -115,6 +111,19 @@ yarn build:production || error "Build failed"
 # -------------------------------
 log "Clearing cache..."
 php artisan optimize:clear
+
+# -------------------------------
+# PERMISSIONS (IMPORTANT)
+# -------------------------------
+log "Fixing permissions..."
+
+chown -R www-data:www-data $PTERO_DIR
+
+find $PTERO_DIR -type d -exec chmod 755 {} \;
+find $PTERO_DIR -type f -exec chmod 644 {} \;
+
+chmod -R 775 $PTERO_DIR/storage
+chmod -R 775 $PTERO_DIR/bootstrap/cache
 
 # -------------------------------
 # FINALIZE
