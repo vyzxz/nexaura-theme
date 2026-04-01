@@ -1,13 +1,12 @@
 #!/bin/bash
-
-set -e  # Exit immediately if a command fails
+set -e
 
 # -------------------------------
 # CONFIG
 # -------------------------------
-GITHUB_ZIP_URL="https://raw.githubusercontent.com/vyzxz/nexaura-theme/main/nexauratheme.zip"
+GITHUB_ZIP_URL="https://github.com/vyzxz/nexaura-theme/archive/refs/heads/main.zip"
 PTERO_DIR="/var/www/pterodactyl"
-ZIP_FILE="nexauratheme.zip"
+TEMP_DIR="/tmp/nexaura_theme"
 BACKUP_DIR="/var/www/pterodactyl_backup_$(date +%F_%T)"
 LOG_FILE="/tmp/nexaura_install.log"
 
@@ -24,7 +23,7 @@ error() {
 }
 
 check_command() {
-    command -v $1 >/dev/null 2>&1 || error "$1 is not installed. Install it first."
+    command -v $1 >/dev/null 2>&1 || error "$1 is not installed."
 }
 
 # -------------------------------
@@ -36,7 +35,7 @@ check_command unzip
 check_command yarn
 check_command php
 
-[ -d "$PTERO_DIR" ] || error "Pterodactyl directory not found!"
+[ -d "$PTERO_DIR" ] || error "Pterodactyl not found"
 
 cd $PTERO_DIR
 
@@ -44,48 +43,66 @@ cd $PTERO_DIR
 # MAINTENANCE MODE
 # -------------------------------
 log "Enabling maintenance mode..."
-php artisan down || log "Already in maintenance mode."
+php artisan down || true
 
 # -------------------------------
-# BACKUP
+# BACKUP (ONLY resources)
 # -------------------------------
-log "Creating backup at $BACKUP_DIR..."
-cp -r $PTERO_DIR $BACKUP_DIR || error "Backup failed!"
+log "Backing up resources..."
+mkdir -p $BACKUP_DIR
+rsync -a resources/ $BACKUP_DIR/resources/
 
 # -------------------------------
 # DOWNLOAD
 # -------------------------------
 log "Downloading theme..."
-curl -fL "$GITHUB_ZIP_URL" -o $ZIP_FILE || error "Download failed!"
+rm -rf $TEMP_DIR
+mkdir -p $TEMP_DIR
 
-# Validate zip
-if ! unzip -t $ZIP_FILE >/dev/null 2>&1; then
-    error "Zip file is corrupted!"
+curl -L "$GITHUB_ZIP_URL" -o $TEMP_DIR/theme.zip || error "Download failed"
+unzip $TEMP_DIR/theme.zip -d $TEMP_DIR || error "Unzip failed"
+
+THEME_DIR=$(find $TEMP_DIR -maxdepth 1 -type d -name "nexaura-theme-*")
+[ -d "$THEME_DIR" ] || error "Theme folder not found"
+
+# -------------------------------
+# INSTALL (ONLY resources)
+# -------------------------------
+log "Applying theme (resources only)..."
+
+if [ -d "$THEME_DIR/resources" ]; then
+    rsync -a --delete $THEME_DIR/resources/ $PTERO_DIR/resources/
+else
+    error "Theme missing resources folder"
 fi
 
 # -------------------------------
-# INSTALL
+# FIX BUILD ENV
 # -------------------------------
-log "Extracting theme..."
-unzip -o $ZIP_FILE || error "Extraction failed!"
-rm -f $ZIP_FILE
+log "Preparing build environment..."
+
+# Ensure assets folder exists (NOT overwriting public)
+mkdir -p public/assets
+
+# Clean old build
+rm -rf node_modules
+rm -f yarn.lock
+rm -rf public/assets/*
 
 # -------------------------------
 # BUILD
 # -------------------------------
 log "Installing dependencies..."
-yarn install --silent || error "Yarn install failed!"
+yarn install --silent || error "Yarn install failed"
 
-log "Building production assets..."
-yarn build:production || error "Build failed!"
+log "Building production..."
+yarn build:production || error "Build failed"
 
 # -------------------------------
-# CLEANUP & CACHE
+# CACHE CLEAN
 # -------------------------------
 log "Clearing cache..."
-php artisan view:clear
-php artisan config:clear
-php artisan cache:clear
+php artisan optimize:clear
 
 # -------------------------------
 # FINALIZE
@@ -93,6 +110,6 @@ php artisan cache:clear
 log "Disabling maintenance mode..."
 php artisan up
 
-log "✅ Nexaura Theme Installed Successfully!"
-echo "Backup saved at: $BACKUP_DIR"
-echo "Logs saved at: $LOG_FILE"
+log "✅ Nexaura Theme Installed (Resources Only)"
+echo "Backup: $BACKUP_DIR"
+echo "Logs: $LOG_FILE"
