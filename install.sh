@@ -4,7 +4,7 @@ set -e
 # -------------------------------
 # CONFIG
 # -------------------------------
-GITHUB_ZIP_URL="https://github.com/vyzxz/nexaura-theme/blob/main/nexauratheme.zip"
+GITHUB_ZIP_URL="https://raw.githubusercontent.com/vyzxz/nexaura-theme/main/nexauratheme.zip"
 PTERO_DIR="/var/www/pterodactyl"
 TEMP_DIR="/tmp/nexaura_theme"
 BACKUP_DIR="/var/www/pterodactyl_backup_$(date +%F_%T)"
@@ -54,46 +54,33 @@ mkdir -p $BACKUP_DIR
 rsync -a resources/ $BACKUP_DIR/resources/
 
 # -------------------------------
-# DOWNLOAD OUTER ZIP
+# DOWNLOAD (FIXED)
 # -------------------------------
-log "Downloading theme repo..."
+log "Downloading theme..."
 rm -rf $TEMP_DIR
 mkdir -p $TEMP_DIR
 
-curl -fL "$GITHUB_ZIP_URL" -o $TEMP_DIR/theme.zip || error "Download failed"
+curl -L --fail "$GITHUB_ZIP_URL" -o $TEMP_DIR/theme.zip || error "Download failed"
+
+# Validate zip (IMPORTANT)
+unzip -t $TEMP_DIR/theme.zip >/dev/null 2>&1 || error "Invalid zip file (wrong URL)"
+
+# Extract
 unzip -o $TEMP_DIR/theme.zip -d $TEMP_DIR || error "Unzip failed"
-
-# -------------------------------
-# FIND INNER ZIP
-# -------------------------------
-log "Locating inner theme zip..."
-
-OUTER_DIR=$(find $TEMP_DIR -maxdepth 1 -type d -name "nexaura-theme-*")
-INNER_ZIP="$OUTER_DIR/nexauratheme.zip"
-
-[ -f "$INNER_ZIP" ] || error "nexauratheme.zip not found inside repo"
-
-# -------------------------------
-# EXTRACT INNER ZIP
-# -------------------------------
-log "Extracting actual theme..."
-
-mkdir -p $TEMP_DIR/inner
-unzip -o "$INNER_ZIP" -d $TEMP_DIR/inner || error "Inner unzip failed"
 
 # -------------------------------
 # FIND resources
 # -------------------------------
 log "Locating resources folder..."
 
-THEME_RESOURCES=$(find $TEMP_DIR/inner -type d -name "resources" | head -n 1)
+THEME_RESOURCES=$(find $TEMP_DIR -type d -name "resources" | head -n 1)
 
-[ -d "$THEME_RESOURCES" ] || error "resources folder not found inside inner zip"
+[ -d "$THEME_RESOURCES" ] || error "resources folder not found in zip"
 
 # -------------------------------
-# INSTALL (FULL REPLACE)
+# INSTALL
 # -------------------------------
-log "Applying theme (full resources replace)..."
+log "Applying theme (full replace)..."
 
 rsync -a --delete "$THEME_RESOURCES/" "$PTERO_DIR/resources/"
 
