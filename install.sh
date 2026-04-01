@@ -46,7 +46,7 @@ log "Enabling maintenance mode..."
 php artisan down || true
 
 # -------------------------------
-# BACKUP (ONLY resources)
+# BACKUP (resources only)
 # -------------------------------
 log "Backing up resources..."
 mkdir -p $BACKUP_DIR
@@ -59,32 +59,38 @@ log "Downloading theme..."
 rm -rf $TEMP_DIR
 mkdir -p $TEMP_DIR
 
-curl -L "$GITHUB_ZIP_URL" -o $TEMP_DIR/theme.zip || error "Download failed"
-unzip $TEMP_DIR/theme.zip -d $TEMP_DIR || error "Unzip failed"
+curl -fL "$GITHUB_ZIP_URL" -o $TEMP_DIR/theme.zip || error "Download failed"
 
-THEME_DIR=$(find $TEMP_DIR -maxdepth 1 -type d -name "nexaura-theme-*")
-[ -d "$THEME_DIR" ] || error "Theme folder not found"
-
-# -------------------------------
-# INSTALL (ONLY resources)
-# -------------------------------
-log "Applying theme (resources only)..."
-
-if [ -d "$THEME_DIR/resources" ]; then
-    rsync -a --delete $THEME_DIR/resources/ $PTERO_DIR/resources/
-else
-    error "Theme missing resources folder"
+# Validate zip
+if ! unzip -t $TEMP_DIR/theme.zip >/dev/null 2>&1; then
+    error "Invalid zip file (check URL)"
 fi
 
-# -------------------------------
-# FIX BUILD ENV
-# -------------------------------
-log "Preparing build environment..."
+# Extract
+unzip -o $TEMP_DIR/theme.zip -d $TEMP_DIR || error "Unzip failed"
 
-# Ensure assets folder exists (NOT overwriting public)
+# -------------------------------
+# FIND resources FOLDER
+# -------------------------------
+log "Locating resources folder..."
+
+THEME_RESOURCES=$(find $TEMP_DIR -type d -name "resources" | head -n 1)
+
+[ -d "$THEME_RESOURCES" ] || error "resources folder not found in zip"
+
+# -------------------------------
+# INSTALL
+# -------------------------------
+log "Applying theme..."
+
+rsync -a --delete "$THEME_RESOURCES/" "$PTERO_DIR/resources/"
+
+# -------------------------------
+# BUILD PREP
+# -------------------------------
+log "Preparing build..."
+
 mkdir -p public/assets
-
-# Clean old build
 rm -rf node_modules
 rm -f yarn.lock
 rm -rf public/assets/*
@@ -99,7 +105,7 @@ log "Building production..."
 yarn build:production || error "Build failed"
 
 # -------------------------------
-# CACHE CLEAN
+# CACHE
 # -------------------------------
 log "Clearing cache..."
 php artisan optimize:clear
@@ -110,6 +116,6 @@ php artisan optimize:clear
 log "Disabling maintenance mode..."
 php artisan up
 
-log "✅ Nexaura Theme Installed (Resources Only)"
+log "✅ Nexaura Theme Installed Successfully"
 echo "Backup: $BACKUP_DIR"
 echo "Logs: $LOG_FILE"
