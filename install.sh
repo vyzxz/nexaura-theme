@@ -4,7 +4,7 @@ set -e
 # -------------------------------
 # CONFIG
 # -------------------------------
-GITHUB_ZIP_URL="https://github.com/vyzxz/nexaura-theme/blob/main/nexauratheme.zip"
+GITHUB_ZIP_URL="https://raw.githubusercontent.com/vyzxz/nexaura-theme/main/nexauratheme.zip"
 PTERO_DIR="/var/www/pterodactyl"
 TEMP_DIR="/tmp/nexaura_theme"
 BACKUP_DIR="/var/www/pterodactyl_backup_$(date +%F_%T)"
