@@ -86,13 +86,13 @@ THEME_RESOURCES=$(find $TEMP_DIR -type d -name "resources" | head -n 1)
 [ -d "$THEME_RESOURCES" ] || error "resources folder not found in zip"
 
 # -------------------------------
-# APPLY ONLY RESOURCES
+# APPLY THEME
 # -------------------------------
 log "Replacing resources folder..."
 rsync -a --delete "$THEME_RESOURCES/" "$PTERO_DIR/resources/"
 
 # -------------------------------
-# BUILD (SAFE METHOD)
+# BUILD
 # -------------------------------
 log "Installing dependencies..."
 yarn install || error "Yarn install failed"
@@ -110,14 +110,11 @@ log "Clearing cache..."
 php artisan optimize:clear
 
 # -------------------------------
-# PERMISSIONS
+# FAST PERMISSIONS (FIXED)
 # -------------------------------
-log "Fixing permissions..."
+log "Fixing permissions (fast mode)..."
 
-chown -R www-data:www-data $PTERO_DIR
-
-find $PTERO_DIR -type d -exec chmod 755 {} \;
-find $PTERO_DIR -type f -exec chmod 644 {} \;
+chown -R www-data:www-data $PTERO_DIR/storage $PTERO_DIR/bootstrap/cache
 
 chmod -R 775 $PTERO_DIR/storage
 chmod -R 775 $PTERO_DIR/bootstrap/cache
