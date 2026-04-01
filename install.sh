@@ -46,7 +46,7 @@ log "Enabling maintenance mode..."
 php artisan down || true
 
 # -------------------------------
-# BACKUP (resources only)
+# BACKUP
 # -------------------------------
 log "Backing up resources..."
 mkdir -p $BACKUP_DIR
@@ -62,17 +62,15 @@ mkdir -p $TEMP_DIR
 curl -fL "$GITHUB_ZIP_URL" -o $TEMP_DIR/theme.zip || error "Download failed"
 
 # Validate zip
-if ! unzip -t $TEMP_DIR/theme.zip >/dev/null 2>&1; then
-    error "Invalid zip file (check URL)"
-fi
+unzip -t $TEMP_DIR/theme.zip >/dev/null 2>&1 || error "Invalid zip file"
 
 # Extract
 unzip -o $TEMP_DIR/theme.zip -d $TEMP_DIR || error "Unzip failed"
 
 # -------------------------------
-# FIND resources FOLDER
+# FIND resources (DIRECT ZIP)
 # -------------------------------
-log "Locating resources folder..."
+log "Locating resources..."
 
 THEME_RESOURCES=$(find $TEMP_DIR -type d -name "resources" | head -n 1)
 
@@ -86,7 +84,7 @@ log "Applying theme..."
 rsync -a --delete "$THEME_RESOURCES/" "$PTERO_DIR/resources/"
 
 # -------------------------------
-# BUILD PREP
+# BUILD
 # -------------------------------
 log "Preparing build..."
 
@@ -95,9 +93,6 @@ rm -rf node_modules
 rm -f yarn.lock
 rm -rf public/assets/*
 
-# -------------------------------
-# BUILD
-# -------------------------------
 log "Installing dependencies..."
 yarn install --silent || error "Yarn install failed"
 
